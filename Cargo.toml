@@ -1,0 +1,12 @@
+[package]
+name = "input-bridget"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rdev = "0.5.3"
+windows = { version = "0.58", features = ["Win32_Graphics_Gdi", "Win32_Foundation"] }
+thiserror = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }

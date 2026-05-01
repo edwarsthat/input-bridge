@@ -70,11 +70,21 @@ async fn run_client_service() -> Result<(), Box<dyn std::error::Error>> {
     println!("Cliente listo. Conectando a {target}...");
 
     let mut ticker = interval(Duration::from_secs(5));
+    let mut buf = vec![0u8; 1024];
+
     loop {
-        ticker.tick().await;
-        match socket.send_to(b"ping", target).await {
-            Ok(_) => println!("Ping enviado a {target}"),
-            Err(e) => eprintln!("Error enviando a {target}: {e}"),
+        tokio::select! {
+            _ = ticker.tick() => {
+                match socket.send_to(b"ping", target).await {
+                    Ok(_) => println!("Ping enviado a {target}"),
+                    Err(e) => eprintln!("Error enviando a {target}: {e}"),
+                }
+            }
+            Ok((len, addr)) = socket.recv_from(&mut buf) => {
+                let msg = String::from_utf8_lossy(&buf[..len]);
+                println!("Recibido desde {addr}: {msg}");
+                // aquí puedes parsear el Edge y actuar sobre él
+            }
         }
     }
 }

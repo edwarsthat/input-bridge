@@ -50,25 +50,17 @@ async fn run_server_service() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn run_client_service() -> Result<(), Box<dyn std::error::Error>> {
-    let socket = Arc::new(client::ws_client::run_client().await?);
-    SOCKET.set(socket.clone()).ok();
+    let socket = client::ws_client::run_client().await?;
+    let target = config::sockets::SERVER_TARGET;
 
-    // Spawn del loop de envío
-    tokio::spawn(async move {
-        let mut ticker = interval(Duration::from_secs(5));
+    println!("Cliente listo. Conectando a {target}...");
 
-        loop {
-            ticker.tick().await;
-
-            match socket.send(b"hola").await {
-                Ok(bytes) => println!("Enviados {bytes} bytes"),
-                Err(e) => {
-                    eprintln!("Error enviando: {e}");
-                    break;
-                }
-            }
+    let mut ticker = interval(Duration::from_secs(5));
+    loop {
+        ticker.tick().await;
+        match socket.send_to(b"ping", target).await {
+            Ok(_) => println!("Ping enviado a {target}"),
+            Err(e) => eprintln!("Error enviando a {target}: {e}"),
         }
-    });
-
-    Ok(())
+    }
 }

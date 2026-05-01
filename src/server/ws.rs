@@ -8,7 +8,7 @@ pub async fn run_server() -> Result<UdpSocket, WsError> {
     match UdpSocket::bind(&bind_addr).await {
         Ok(listener) => {
             println!("Servidor escuchando en {bind_addr}");
-            Ok(listener)
+            return Ok(listener)
         }
         Err(err) => return Err(WsError::BindFailed(err.to_string()))
     };

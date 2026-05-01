@@ -1,6 +1,7 @@
 use std::sync::{Arc, OnceLock};
 use tokio::net::UdpSocket;
 mod client;
+mod config;
 mod error;
 mod server;
 

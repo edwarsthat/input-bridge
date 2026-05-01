@@ -78,6 +78,7 @@ fn enumerate_monitors() -> Vec<MonitorRect> {
 #[cfg(target_os = "linux")]
 fn enumerate_monitors() -> Vec<MonitorRect> {
     use x11rb::connection::Connection;
+    use x11rb::errors::ReplyOrIdError;
     use x11rb::protocol::randr::ConnectionExt as RandrExt;
 
     let Ok((conn, screen_num)) = x11rb::connect(None) else {
@@ -86,10 +87,11 @@ fn enumerate_monitors() -> Vec<MonitorRect> {
 
     let root = conn.setup().roots[screen_num].root;
 
-    match conn
+    let result = conn
         .randr_get_monitors(root, true)
-        .and_then(|cookie| cookie.reply())
-    {
+        .map_err(ReplyOrIdError::from)
+        .and_then(|cookie| cookie.reply().map_err(ReplyOrIdError::from));
+    match result {
         Ok(reply) => reply
             .monitors
             .iter()

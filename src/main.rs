@@ -1,11 +1,9 @@
-use std::{sync::{Arc, OnceLock}, time::Duration};
-use tokio::{net::UdpSocket, time::interval};
+use std::{sync::Arc, time::Duration};
+use tokio::time::interval;
 mod client;
 mod config;
 mod error;
 mod server;
-
-static SOCKET: OnceLock<Arc<UdpSocket>> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
@@ -24,7 +22,6 @@ async fn main() {
                 std::process::exit(1);
             }
         }
-
         _ => {
             eprintln!("Uso: cargo run -- server | client");
             std::process::exit(1);
@@ -34,17 +31,34 @@ async fn main() {
 
 async fn run_server_service() -> Result<(), Box<dyn std::error::Error>> {
     let socket = Arc::new(server::ws::run_server().await?);
-    SOCKET.set(socket.clone()).ok();
 
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<server::monitors::Edge>(32);
+
+    std::thread::spawn(move || {
+        if let Err(e) = server::capture::start(tx) {
+            eprintln!("Error en capture: {e}");
+        }
+    });
+
+    let mut client_addr = None;
     let mut buf = vec![0u8; 1024];
 
+    println!("Esperando que el cliente se conecte...");
+
     loop {
-        let (len, addr) = socket.recv_from(&mut buf).await?;
-        println!("Paquete recibido de {addr}: {} bytes", len);
-        
-        // opcional: imprimir el contenido como texto
-        if let Ok(msg) = std::str::from_utf8(&buf[..len]) {
-            println!("Contenido: {msg}");
+        tokio::select! {
+            Some(edge) = rx.recv() => {
+                if let Some(addr) = client_addr {
+                    let msg = format!("{edge:?}");
+                    socket.send_to(msg.as_bytes(), addr).await?;
+                    println!("Borde {edge:?} → enviado a {addr}");
+                }
+            }
+            Ok((len, addr)) = socket.recv_from(&mut buf) => {
+                let msg = String::from_utf8_lossy(&buf[..len]);
+                println!("Cliente conectado desde {addr}: {msg}");
+                client_addr = Some(addr);
+            }
         }
     }
 }

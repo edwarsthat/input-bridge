@@ -1,22 +1,18 @@
 use crate::error::CaptureError;
 use rdev::{Event, EventType, listen};
-use super::monitors::outer_edge_at;
+use tokio::sync::mpsc::Sender;
+use super::monitors::{Edge, outer_edge_at};
 
-pub fn start() -> Result<(), CaptureError> {
+pub fn start(tx: Sender<Edge>) -> Result<(), CaptureError> {
     println!("Escuchando eventos...");
-    listen(on_event).map_err(|e| CaptureError::ListenerFailed(format!("{:?}", e)))
+    listen(move |event| on_event(event, &tx))
+        .map_err(|e| CaptureError::ListenerFailed(format!("{:?}", e)))
 }
 
-fn on_event(event: Event) {
-    match event.event_type {
-        EventType::MouseMove { x, y } => {
-            if let Some(edge) = outer_edge_at(x, y) {
-                println!("Cursor en borde externo: {:?} ({:.0}, {:.0})", edge, x, y);
-                // aquí disparas la lógica de transición entre máquinas
-            }
+fn on_event(event: Event, tx: &Sender<Edge>) {
+    if let EventType::MouseMove { x, y } = event.event_type {
+        if let Some(edge) = outer_edge_at(x, y) {
+            tx.blocking_send(edge).ok();
         }
-        EventType::ButtonPress(button) => println!("Click: {:?}", button),
-        EventType::ButtonRelease(button) => println!("Soltó: {:?}", button),
-        _ => {}
     }
 }
